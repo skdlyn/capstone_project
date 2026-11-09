@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="id" class="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Air Quality Monitoring | Real-Time Dashboard</title>
+
+    <!-- Logo Tab Browser -->
+    <link rel="icon" type="image/png" href="iot.png">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <!-- Chart.js for real-time charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MQTT.js library -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body
+    class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen flex flex-col md:flex-row transition-colors duration-300">
+
+    <!-- Sidebar Navigation -->
+    <aside
+        class="w-full md:w-64 bg-white dark:bg-slate-800/90 backdrop-blur-md border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-700/80 flex flex-col justify-between p-4 space-y-6 transition-colors duration-300 z-50 shrink-0">
+
+        <div class="space-y-6">
+            <!-- Brand / Logo Header -->
+            <div class="flex items-center justify-between md:justify-start space-x-3 px-2 py-1">
+                <div class="flex items-center space-x-3">
+                    <div
+                        class="bg-emerald-50 dark:bg-emerald-500/10 p-2.5 rounded-2xl border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-sm animate-bounce">
+                        <i class="fa-solid fa-wind text-xl"></i>
+                    </div>
+                    <div>
+                        <span class="font-extrabold text-sm block tracking-tight text-slate-900 dark:text-white">IoT
+                            Monitoring</span>
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Capstone Project • Lab
+                            Indoor</span>
+                    </div>
+                </div>
+                <!-- Live Badge (Mobile Only) -->
+                <span
+                    class="md:hidden bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider">Live</span>
+            </div>
+
+            <!-- Navigation Links (Interactive Sidebar Buttons) -->
+            <nav class="space-y-1.5">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard"
+                    class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl bg-emerald-500 text-white font-semibold text-sm shadow-sm shadow-emerald-500/20 transition-all text-left">
+                    <i class="fa-solid fa-house text-base w-5 text-center"></i>
+                    <span>Dashboard Utama</span>
+                </button>
+                <button onclick="switchTab('logs')" id="nav-logs"
+                    class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white font-medium text-sm transition-all text-left">
+                    <i class="fa-solid fa-table-list text-base w-5 text-center"></i>
+                    <span>Log Riwayat Data</span>
+                </button>
+                <button onclick="switchTab('alerts')" id="nav-alerts"
+                    class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white font-medium text-sm transition-all text-left">
+                    <i class="fa-solid fa-triangle-exclamation text-base w-5 text-center"></i>
+                    <span>Pusat Peringatan</span>
+                </button>
+                <button onclick="switchTab('device')" id="nav-device"
+                    class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white font-medium text-sm transition-all text-left">
+                    <i class="fa-solid fa-microchip text-base w-5 text-center"></i>
+                    <span>Status Perangkat</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- Sidebar Footer Info -->
+        <div
+            class="hidden md:block pt-4 border-t border-slate-200 dark:border-slate-700/60 px-2 space-y-1 text-xs text-slate-500 dark:text-slate-400">
+            <p class="font-bold text-slate-700 dark:text-slate-300">Kelompok 2</p>
+            <p class="text-[11px]">S1 Sistem Informasi - UT</p>
+        </div>
+    </aside>
+
+    <!-- Main Content Wrapper -->
+    <div class="flex-grow flex flex-col min-w-0">
+
+        <!-- Top Header Bar -->
+        <header
+            class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
+
+                <!-- Left Header Title -->
+                <div class="flex items-center space-x-3">
+                    <h1
+                        class="text-base font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                        <span>IoT Air Quality Monitoring</span>
+                        <span
+                            class="hidden sm:inline-block bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider">Live</span>
+                    </h1>
+                </div>
+
+                <!-- Right Header Actions (Connection Status & Dark Mode) -->
+                <div class="flex items-center space-x-3">
+                    <!-- Connection Status Badge -->
+                    <div id="conn-status"
+                        class="flex items-center space-x-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 px-3.5 py-1.5 rounded-full text-xs font-semibold text-rose-600 dark:text-rose-400 shadow-sm transition-all duration-300">
+                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+                        <span id="conn-text">Menghubungkan...</span>
+                    </div>
+
+                    <!-- Theme Toggle Button -->
+                    <button onclick="toggleDarkMode()"
+                        class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 p-2.5 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm transition-all duration-200 focus:outline-none"
+                        title="Ubah Mode Tampilan">
+                        <i id="theme-icon" class="fa-solid fa-moon text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Container -->
+        <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+            <!-- ================= TAB 1: DASHBOARD UTAMA ================= -->
+            <div id="view-dashboard" class="space-y-8">
+                <!-- Elemen Notifikasi Alert -->
+                <div id="air-alert"
+                    class="p-3 mb-4 rounded-xl font-medium text-sm transition-all duration-300 bg-slate-100 dark:bg-slate-800 text-slate-500 shadow-sm flex items-center space-x-2">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>Menunggu data sensor masuk...</span>
+                </div>
+
+                <!-- Metrics Cards Grid (4 Cards) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+                    <!-- Temperature Card (Indoor) -->
+                    <div
+                        class="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-6 shadow-sm relative overflow-hidden group hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                        <div
+                            class="absolute -right-4 -bottom-4 w-28 h-28 bg-amber-50 dark:bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-100 transition-all">
+                        </div>
+                        <div class="flex justify-between items-start mb-4 relative z-10">
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Suhu Ruangan
+                                    (Indoor)</p>
+                                <h3 id="temp-val"
+                                    class="text-3xl font-black text-slate-900 dark:text-white mt-2 tracking-tight transition-all duration-300">
+                                    -- <span class="text-xl font-bold text-slate-500">°C</span></h3>
+                            </div>
+                            <div
+                                class="bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 p-3.5 rounded-2xl border border-amber-200/60 dark:border-amber-500/20 shadow-inner group-hover:scale-110 transition-transform">
+                                <i class="fa-solid fa-temperature-high text-xl"></i>
+                            </div>
+                        </div>
+                        <div
+                            class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-100 dark:border-slate-700/60 relative z-10">
+                            <span class="flex items-center gap-1.5"><i class="fa-solid fa-microchip text-slate-400"></i>
+                                Sensor DHT22</span>
+                            <span
+                                class="text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-0.5 rounded-full">Aktif</span>
+                        </div>
+                    </div>
+
+                    <!-- Humidity Card (Indoor) -->
+                    <div
+                        class="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-6 shadow-sm relative overflow-hidden group hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                        <div
+                            class="absolute -right-4 -bottom-4 w-28 h-28 bg-sky-50 dark:bg-sky-500/5 rounded-full blur-2xl group-hover:bg-sky-100 transition-all">
+                        </div>
+                        <div class="flex justify-between items-start mb-4 relative z-10">
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Kelembapan
+                                    Ruangan</p>
+                                <h3 id="hum-val"
+                                    class="text-3xl font-black text-slate-900 dark:text-white mt-2 tracking-tight transition-all duration-300">
+                                    -- <span class="text-xl font-bold text-slate-500">%</span></h3>
+                            </div>
+                            <div
+                                class="bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 p-3.5 rounded-2xl border border-sky-200/60 dark:border-sky-500/20 shadow-inner group-hover:scale-110 transition-transform">
+                                <i class="fa-solid fa-droplet text-xl"></i>
+                            </div>
+                        </div>
+                        <div
+                            class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-100 dark:border-slate-700/60 relative z-10">
+                            <span class="flex items-center gap-1.5"><i class="fa-solid fa-microchip text-slate-400"></i>
+                                Sensor DHT22</span>
+                            <span
+                                class="text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-0.5 rounded-full">Stabil</span>
+                        </div>
+                    </div>
+
+                    <!-- Outdoor Weather Card (API Open-Meteo) -->
+                    <div
+                        class="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-6 shadow-sm relative overflow-hidden group hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                        <div
+                            class="absolute -right-4 -bottom-4 w-28 h-28 bg-blue-50 dark:bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-100 transition-all">
+                        </div>
+                        <div class="flex justify-between items-start mb-4 relative z-10">
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Suhu Luar
+                                    (Bandung)</p>
+                                <h3 id="outdoor-temp"
+                                    class="text-3xl font-black text-slate-900 dark:text-white mt-2 tracking-tight transition-all duration-300">
+                                    -- <span class="text-xl font-bold text-slate-500">°C</span></h3>
+                            </div>
+                            <div
+                                class="bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 p-3.5 rounded-2xl border border-blue-200/60 dark:border-blue-500/20 shadow-inner group-hover:scale-110 transition-transform">
+                                <i class="fa-solid fa-cloud-sun text-xl"></i>
+                            </div>
+                        </div>
+                        <div
+                            class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-100 dark:border-slate-700/60 relative z-10">
+                            <span class="flex items-center gap-1.5"><i class="fa-solid fa-cloud text-slate-400"></i>
+                                Open-Meteo API</span>
+                            <span id="outdoor-desc"
+                                class="text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-500/10 px-2.5 py-0.5 rounded-full">Memuat...</span>
+                        </div>
+                    </div>
+
+                    <!-- Total Data Packets Card -->
+                    <div
+                        class="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-6 shadow-sm relative overflow-hidden group hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                        <div
+                            class="absolute -right-4 -bottom-4 w-28 h-28 bg-emerald-50 dark:bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-100 transition-all">
+                        </div>
+                        <div class="flex justify-between items-start mb-4 relative z-10">
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Data
+                                    Masuk</p>
+                                <h3 id="total-data-val"
+                                    class="text-3xl font-black text-slate-900 dark:text-white mt-2 tracking-tight transition-all duration-300">
+                                    0</h3>
+                            </div>
+                            <div
+                                class="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 p-3.5 rounded-2xl border border-emerald-200/60 dark:border-emerald-500/20 shadow-inner group-hover:scale-110 transition-transform">
+                                <i class="fa-solid fa-database text-xl"></i>
+                            </div>
+                        </div>
+                        <div
+                            class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-100 dark:border-slate-700/60 relative z-10">
+                            <span class="flex items-center gap-1.5"><i class="fa-solid fa-wifi text-slate-400"></i> MQTT
+                                Stream</span>
+                            <span
+                                class="text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-0.5 rounded-full">Live</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Real-time Chart Section -->
+                <div
+                    class="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-6 shadow-sm transition-colors duration-300">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900 dark:text-white">Grafik Perbandingan Suhu
+                                (Indoor vs Outdoor)</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Membandingkan suhu ruangan ESP32
+                                dengan suhu lingkungan luar kota Bandung</p>
+                        </div>
+                        <div
+                            class="flex items-center space-x-2 text-xs bg-slate-50 dark:bg-slate-900/60 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <span class="flex h-2.5 w-2.5 relative">
+                                <span
+                                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                            </span>
+                            <span class="text-slate-600 dark:text-slate-300 font-mono font-medium">MQTT & Weather
+                                API</span>
+                        </div>
+                    </div>
+                    <div class="h-80 w-full">
+                        <canvas id="realtimeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= TAB 2: LOG RIWAYAT DATA ================= -->
+            <div id="view-logs" class="space-y-6 hidden">
+                <div
+                    class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900 dark:text-white">Log Riwayat Data Sensor ESP32
+                            </h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Menampilkan daftar data masuk secara
+                                *real-time* dari MQTT broker (10 data per halaman).</p>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+                            <thead class="bg-slate-100 dark:bg-slate-700 uppercase font-semibold text-[11px]">
+                                <tr>
+                                    <th class="p-3 rounded-l-lg">Waktu (Timestamp)</th>
+                                    <th class="p-3">Suhu Indoor (°C)</th>
+                                    <th class="p-3">Kelembapan (%)</th>
+                                    <th class="p-3 rounded-r-lg">Status Sistem</th>
+                                </tr>
+                            </thead>
+                            <tbody id="log-table-body" class="divide-y divide-slate-200 dark:divide-slate-700">
+                                <tr>
+                                    <td colspan="4" class="p-4 text-center text-slate-400">Belum ada data riwayat
+                                        tersimpan.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination Controls (Tombol Pindah Halaman) -->
+                    <div
+                        class="flex flex-col sm:flex-row items-center justify-between pt-4 mt-4 border-t border-slate-100 dark:border-slate-700/60 gap-4 text-xs text-slate-500 dark:text-slate-400">
+                        <div>
+                            Menampilkan <span id="page-start"
+                                class="font-bold text-slate-700 dark:text-slate-200">0</span> - <span id="page-end"
+                                class="font-bold text-slate-700 dark:text-slate-200">0</span> dari <span
+                                id="page-total-items" class="font-bold text-slate-700 dark:text-slate-200">0</span> data
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="changePage(-1)" id="btn-prev" disabled
+                                class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition font-medium">
+                                <i class="fa-solid fa-chevron-left mr-1"></i> SBLM
+                            </button>
+                            <span class="px-2 font-semibold text-slate-700 dark:text-slate-200">
+                                Halaman <span id="current-page">1</span> / <span id="total-pages">1</span>
+                            </span>
+                            <button onclick="changePage(1)" id="btn-next" disabled
+                                class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition font-medium">
+                                SELANJUTNYA <i class="fa-solid fa-chevron-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= TAB 3: PUSAT PERINGATAN ================= -->
+            <div id="view-alerts" class="space-y-6 hidden">
+                <div
+                    class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900 dark:text-white mb-1">Riwayat Peringatan &
+                                Anomali Suhu</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Catatan kejadian saat suhu ruangan
+                                melewati batas normal (> 33°C atau < 20°C).</p>
+                        </div>
+                    </div>
+
+                    <!-- Daftar List Peringatan -->
+                    <div id="alert-history-list" class="space-y-3">
+                        <div
+                            class="p-4 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 text-center">
+                            Belum ada peringatan kritis yang tercatat sesi ini.
+                        </div>
+                    </div>
+
+                    <!-- Pagination Controls untuk Pusat Peringatan -->
+                    <div id="alert-pagination"
+                        class="hidden flex flex-col sm:flex-row items-center justify-between pt-4 mt-4 border-t border-slate-100 dark:border-slate-700/60 gap-4 text-xs text-slate-500 dark:text-slate-400">
+                        <div>
+                            Menampilkan <span id="alert-page-start"
+                                class="font-bold text-slate-700 dark:text-slate-200">0</span> - <span
+                                id="alert-page-end" class="font-bold text-slate-700 dark:text-slate-200">0</span> dari
+                            <span id="alert-total-items" class="font-bold text-slate-700 dark:text-slate-200">0</span>
+                            peringatan
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="changeAlertPage(-1)" id="btn-alert-prev" disabled
+                                class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition font-medium">
+                                <i class="fa-solid fa-chevron-left mr-1"></i> SBLM
+                            </button>
+                            <span class="px-2 font-semibold text-slate-700 dark:text-slate-200">
+                                Halaman <span id="alert-current-page">1</span> / <span id="alert-total-pages">1</span>
+                            </span>
+                            <button onclick="changeAlertPage(1)" id="btn-alert-next" disabled
+                                class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition font-medium">
+                                SELANJUTNYA <i class="fa-solid fa-chevron-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= TAB 4: STATUS PERANGKAT ================= -->
+            <div id="view-device" class="space-y-6 hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div
+                        class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm space-y-4">
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <i class="fa-solid fa-microchip text-emerald-500"></i> Informasi Mikrokontroler
+                        </h3>
+                        <ul class="text-xs space-y-3 text-slate-600 dark:text-slate-300">
+                            <li class="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
+                                <span class="text-slate-400">Hardware:</span> <span
+                                    class="font-semibold font-mono">ESP32 DevKit V1</span>
+                            </li>
+                            <li class="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
+                                <span class="text-slate-400">Sensor Utama:</span> <span
+                                    class="font-semibold font-mono">Aosong AM2302 / DHT22</span>
+                            </li>
+                            <li class="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
+                                <span class="text-slate-400">Protokol Komunikasi:</span> <span
+                                    class="font-semibold font-mono">MQTT over WebSockets</span>
+                            </li>
+                            <li class="flex justify-between py-2">
+                                <span class="text-slate-400">Topik MQTT:</span> <span
+                                    class="font-semibold font-mono">airmonitor/esp32-01/sensor</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div
+                        class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm space-y-4">
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <i class="fa-solid fa-network-wired text-blue-500"></i> Status Jaringan & Broker
+                        </h3>
+                        <ul class="text-xs space-y-3 text-slate-600 dark:text-slate-300">
+                            <li class="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
+                                <span class="text-slate-400">Virtual Network:</span> <span
+                                    class="font-semibold font-mono">Tailscale Mesh</span>
+                            </li>
+                            <li class="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
+                                <span class="text-slate-400">Broker IP:</span> <span
+                                    class="font-semibold font-mono">100.106.70.102:9001</span>
+                            </li>
+                            <li class="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
+                                <span class="text-slate-400">Weather API:</span> <span
+                                    class="font-semibold font-mono">Open-Meteo (Bandung)</span>
+                            </li>
+                            <li class="flex justify-between py-2">
+                                <span class="text-slate-400">Status Kloning:</span> <span
+                                    class="font-semibold text-emerald-500">Optimal / Connected</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Footer -->
+        <footer
+            class="bg-white dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 py-4 text-center text-xs text-slate-400 transition-colors duration-300 mt-auto">
+            Capstone Project Sistem Informasi - Kelompok 2 - Universitas Terbuka &copy; 2026
+        </footer>
+    </div>
+
+    <!-- Main JavaScript File -->
+    <script src="app.js"></script>
+</body>
+
+</html>
